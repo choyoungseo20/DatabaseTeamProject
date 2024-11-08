@@ -456,12 +456,21 @@ public class MainFrame extends JFrame implements ActionListener {
             else if (selected.equals("성별")) {
                 try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                     // ---------- 기영 영역 ----------
+                    String sql = "SELECT Sex, AVG(Salary) AS Avg_Salary FROM EMPLOYEE GROUP BY Sex";
+                    PreparedStatement p = conn.prepareStatement(sql);
+                    ResultSet r = p.executeQuery();
 
+                    DefaultTableModel model = new DefaultTableModel();
+                    model.addColumn("Sex");
+                    model.addColumn("Avg_Salary");
 
+                    while (r.next()) {
+                        String sex = r.getString("Sex");
+                        double avgSalary = r.getDouble("Avg_Salary");
+                        model.addRow(new Object[]{sex, avgSalary});
+                    }
 
-
-
-
+                    employeeTable.setModel(model);
                     // ---------- 기영 영역 ----------
                     conn.close();
                 } catch (SQLException ex) {
@@ -471,12 +480,21 @@ public class MainFrame extends JFrame implements ActionListener {
             else if (selected.equals("부서")) {
                 try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                     // ---------- 기영 영역 ----------
+                    String sql = "SELECT Dname, AVG(Salary) AS Avg_Salary FROM EMPLOYEE JOIN DEPARTMENT ON Dno = Dnumber GROUP BY Dname";
+                    PreparedStatement p = conn.prepareStatement(sql);
+                    ResultSet r = p.executeQuery();
 
+                    DefaultTableModel model = new DefaultTableModel();
+                    model.addColumn("Dname");
+                    model.addColumn("Avg_Salary");
 
+                    while (r.next()) {
+                        String dname = r.getString("Dname");
+                        double avgSalary = r.getDouble("Avg_Salary");
+                        model.addRow(new Object[]{dname, avgSalary});
+                    }
 
-
-
-
+                    employeeTable.setModel(model);
                     // ---------- 기영 영역 ----------
                     conn.close();
                 } catch (SQLException ex) {
@@ -486,12 +504,21 @@ public class MainFrame extends JFrame implements ActionListener {
             else if (selected.equals("상급자")) {
                 try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                     // ---------- 기영 영역 ----------
+                    String sql = "SELECT S.Fname, S.Minit, S.Lname, AVG(S.Salary) AS Avg_Salary FROM EMPLOYEE E JOIN EMPLOYEE S ON E.Super_ssn = S.Ssn GROUP BY S.Fname, S.Minit, S.Lname";
+                    PreparedStatement p = conn.prepareStatement(sql);
+                    ResultSet r = p.executeQuery();
 
+                    DefaultTableModel model = new DefaultTableModel();
+                    model.addColumn("S_Name");
+                    model.addColumn("Avg_Salary");
 
+                    while (r.next()) {
+                        String sName = r.getString("S.Fname") + " " + r.getString("S.Minit") + " " + r.getString("S.Lname");
+                        double avgSalary = r.getDouble("Avg_Salary");
+                        model.addRow(new Object[]{sName, avgSalary});
+                    }
 
-
-
-
+                    employeeTable.setModel(model);
                     // ---------- 기영 영역 ----------
                     conn.close();
                 } catch (SQLException ex) {
