@@ -4,7 +4,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.ResultSet;
 
 public class InsertDataFrame extends JFrame implements ActionListener {
 
@@ -193,12 +195,13 @@ public class InsertDataFrame extends JFrame implements ActionListener {
 
         this.setVisible(true);
     }
-
+/*
     @Override
     public void actionPerformed(ActionEvent e) {
         try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
             // ---------- 준호 영역 ----------
 
+            // InsertDataFrame.java - 준호 영역 코드 추가
 
 
             // txtFirstName, txtMiddleInit, txtLastName, txtSsn, txtBirthdate, txtAddress, txtSalary, txtSuperSsn, txtDno, txtSex - 자료형은 맨 위 참고
@@ -219,4 +222,90 @@ public class InsertDataFrame extends JFrame implements ActionListener {
         }
 
     }
+
+ */
+@Override
+public void actionPerformed(ActionEvent e) {
+    try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
+        // 입력한 데이터를 변수에 저장
+        String firstName = txtFirstName.getText().trim();
+        String middleInit = txtMiddleInit.getText().trim();
+        String lastName = txtLastName.getText().trim();
+        String ssn = txtSsn.getText().trim();
+        String birthdate = txtBirthdate.getText().trim();
+        String address = txtAddress.getText().trim();
+        String sex = (String) txtSex.getSelectedItem();
+        String salary = txtSalary.getText().trim();
+        String superSsn = txtSuperSsn.getText().trim();
+        String dno = txtDno.getText().trim();
+
+        // 1. 부서 번호가 유효한지 확인
+        int departmentNo;
+        try {
+            departmentNo = Integer.parseInt(dno);
+            if (departmentNo != 1 && departmentNo != 4 && departmentNo != 5) {
+                JOptionPane.showMessageDialog(this, "유효한 부서 번호는 1, 4, 5 입니다.");
+                return;
+            }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "부서 번호는 숫자로 입력해야 합니다.");
+            return;
+        }
+
+        // 2. SSN 중복 검사
+        String ssnCheckQuery = "SELECT COUNT(*) FROM EMPLOYEE WHERE Ssn = ?";
+        PreparedStatement ssnCheckStmt = conn.prepareStatement(ssnCheckQuery);
+        ssnCheckStmt.setString(1, ssn);
+        ResultSet ssnCheckResult = ssnCheckStmt.executeQuery();
+        ssnCheckResult.next();
+        if (ssnCheckResult.getInt(1) > 0) {
+            JOptionPane.showMessageDialog(this, "이미 존재하는 SSN입니다.");
+            return;
+        }
+
+        // 3. Super_ssn 유효성 검사 (빈 칸이 아닌 경우)
+        if (!superSsn.isEmpty()) {
+            String superSsnCheckQuery = "SELECT COUNT(*) FROM EMPLOYEE WHERE Ssn = ?";
+            PreparedStatement superSsnCheckStmt = conn.prepareStatement(superSsnCheckQuery);
+            superSsnCheckStmt.setString(1, superSsn);
+            ResultSet superSsnCheckResult = superSsnCheckStmt.executeQuery();
+            superSsnCheckResult.next();
+            if (superSsnCheckResult.getInt(1) == 0) {
+                JOptionPane.showMessageDialog(this, "유효하지 않은 슈퍼바이저 SSN입니다.");
+                return;
+            }
+        }
+
+        // SQL INSERT 쿼리 작성
+        String insertQuery = "INSERT INTO EMPLOYEE (Fname, Minit, Lname, Ssn, Bdate, Address, Sex, Salary, Super_ssn, Dno, created, modified) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+        PreparedStatement pstmt = conn.prepareStatement(insertQuery);
+
+        // PreparedStatement에 파라미터 설정
+        pstmt.setString(1, firstName);
+        pstmt.setString(2, middleInit.isEmpty() ? null : middleInit); // 중간 이름이 없을 경우 null로 설정
+        pstmt.setString(3, lastName);
+        pstmt.setString(4, ssn);
+        pstmt.setDate(5, birthdate.isEmpty() ? null : java.sql.Date.valueOf(birthdate)); // 날짜 형식이 올바른지 확인 필요
+        pstmt.setString(6, address);
+        pstmt.setString(7, sex);
+        pstmt.setDouble(8, salary.isEmpty() ? 0 : Double.parseDouble(salary)); // 빈 값인 경우 0으로 설정
+        pstmt.setString(9, superSsn.isEmpty() ? null : superSsn); // 상사의 SSN이 없는 경우 null로 설정
+        pstmt.setInt(10, departmentNo); // 부서 번호
+
+        // 쿼리 실행
+        pstmt.executeUpdate();
+
+        // 성공 메시지 출력
+        JOptionPane.showMessageDialog(this, "정보 추가 성공!");
+        new MainFrame(url, acct, pw);
+        this.setVisible(false);
+
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(this, "정보를 추가하지 못했습니다. 데이터 형식을 확인하세요.\n오류: " + ex.getMessage());
+    } catch (IllegalArgumentException ex) {
+        JOptionPane.showMessageDialog(this, "날짜 형식이 잘못되었습니다. yyyy-MM-dd 형식으로 입력하세요.");
+    }
+}
+
 }

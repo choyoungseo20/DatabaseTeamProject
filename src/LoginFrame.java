@@ -111,13 +111,14 @@ public class LoginFrame extends JFrame implements ActionListener {
 
         String url = "jdbc:mysql://localhost:3306/" + dbname + "?serverTimezone=UTC";
 
+
         try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
             JOptionPane.showMessageDialog(this, "DB 접속 성공!");
             conn.close();
             new MainFrame(url, acct, pw);
             this.setVisible(false);
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "DB 연결에 실패했습니다.");
+            JOptionPane.showMessageDialog(this, "DB 연결에 실패했습니다. 오류: " + ex.getMessage());
         }
     }
 }

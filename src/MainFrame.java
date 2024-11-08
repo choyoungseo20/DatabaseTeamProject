@@ -508,10 +508,13 @@ public class MainFrame extends JFrame implements ActionListener {
             new InsertDataFrame(url, acct, pw);
             this.setVisible(false);
         }
-
+/*
         if (e.getSource() == btnUpdate) {
             try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                 // ---------- 준호 영역 ----------
+                // MainFrame.java - 준호 영역 코드 추가
+
+
 
 
 
@@ -532,7 +535,125 @@ public class MainFrame extends JFrame implements ActionListener {
                 new MainFrame(url, acct, pw);
                 this.setVisible(false);
             } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(this, "수정에 실패했습니다. 데이터 형식을 확인하세요.");
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "수정에 실패했습니다. 오류: " + ex.getMessage());
+                //JOptionPane.showMessageDialog(this, "수정에 실패했습니다. 데이터 형식을 확인하세요.");
+            }
+        }
+*/
+        if (e.getSource() == btnUpdate) {
+            try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
+                String selectedField = updateCategory.getSelectedItem().toString();
+                String newValue = txtUpdate.getText();
+                String updateQuery;
+
+                // SSN이 선택된 경우 Super_ssn 필드를 검사하여 업데이트
+                if (selectedField.equals("Ssn")) {
+                    for (String oldSsn : selectedSsnList) {
+                        // 1. 현재 SSN을 새 값으로 업데이트
+                        updateQuery = "UPDATE EMPLOYEE SET Ssn = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                        PreparedStatement pstmt = conn.prepareStatement(updateQuery);
+                        pstmt.setString(1, newValue);
+                        pstmt.setString(2, oldSsn);
+                        pstmt.executeUpdate();
+
+                        // 2. 모든 직원의 Super_ssn을 검사하여, 현재 업데이트 중인 직원의 기존 SSN과 일치하는 경우 새 SSN으로 변경
+                        updateQuery = "UPDATE EMPLOYEE SET Super_ssn = ? WHERE Super_ssn = ?";
+                        pstmt = conn.prepareStatement(updateQuery);
+                        pstmt.setString(1, newValue);
+                        pstmt.setString(2, oldSsn);
+                        pstmt.executeUpdate();
+                    }
+                } else if (selectedField.equals("Name")) {
+                    // Name 업데이트 로직
+                    String[] nameParts = newValue.split(" ");
+                    if (nameParts.length < 2) {
+                        JOptionPane.showMessageDialog(this, "이름은 최소 성과 이름으로 구성되어야 합니다.");
+                        return;
+                    }
+                    String fname = nameParts[0];
+                    String minit = nameParts.length > 2 ? nameParts[1] : "";  // 중간 이름이 없는 경우 빈 문자열로 처리
+                    String lname = nameParts.length > 2 ? nameParts[2] : nameParts[1];
+
+                    updateQuery = "UPDATE EMPLOYEE SET Fname = ?, Minit = ?, Lname = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(updateQuery);
+
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setString(1, fname);
+                        pstmt.setString(2, minit);
+                        pstmt.setString(3, lname);
+                        pstmt.setString(4, ssn);
+                        pstmt.executeUpdate();
+                    }
+                } else if (selectedField.equals("Department")) {
+                    // 부서 업데이트 로직
+                    int departmentNo;
+                    try {
+                        departmentNo = Integer.parseInt(newValue);
+                        if (departmentNo != 1 && departmentNo != 4 && departmentNo != 5) {
+                            JOptionPane.showMessageDialog(this, "유효한 부서 번호는 1, 4, 5 입니다.");
+                            return;
+                        }
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(this, "부서 번호는 숫자로 입력해야 합니다.");
+                        return;
+                    }
+
+                    updateQuery = "UPDATE EMPLOYEE SET Dno = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(updateQuery);
+
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setInt(1, departmentNo);
+                        pstmt.setString(2, ssn);
+                        pstmt.executeUpdate();
+                    }
+                } else if (selectedField.equals("Supervisor")) {
+                    // Supervisor 업데이트 로직
+                    // Super_ssn이 존재하는지 확인
+                    updateQuery = "SELECT COUNT(*) FROM EMPLOYEE WHERE Ssn = ?";
+                    PreparedStatement checkStmt = conn.prepareStatement(updateQuery);
+                    checkStmt.setString(1, newValue);
+                    ResultSet rs = checkStmt.executeQuery();
+                    rs.next();
+                    if (rs.getInt(1) == 0) {
+                        JOptionPane.showMessageDialog(this, "유효하지 않은 슈퍼바이저 SSN입니다.");
+                        return;
+                    }
+
+                    // 본인을 슈퍼바이저로 지정하지 못하도록 확인
+                    for (String ssn : selectedSsnList) {
+                        if (ssn.equals(newValue)) {
+                            JOptionPane.showMessageDialog(this, "본인을 슈퍼바이저로 지정할 수 없습니다.");
+                            return;
+                        }
+                    }
+
+                    // Supervisor 업데이트 진행
+                    updateQuery = "UPDATE EMPLOYEE SET Super_ssn = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(updateQuery);
+
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setString(1, newValue);
+                        pstmt.setString(2, ssn);
+                        pstmt.executeUpdate();
+                    }
+                } else {
+                    // 다른 필드 선택 시 기본적인 업데이트 로직 유지
+                    updateQuery = "UPDATE EMPLOYEE SET " + selectedField + " = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(updateQuery);
+
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setString(1, newValue);
+                        pstmt.setString(2, ssn);
+                        pstmt.executeUpdate();
+                    }
+                }
+
+                JOptionPane.showMessageDialog(this, "수정 성공!");
+                new MainFrame(url, acct, pw);
+                this.setVisible(false);
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "수정에 실패했습니다. 오류: " + ex.getMessage());
             }
         }
 
