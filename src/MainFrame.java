@@ -62,7 +62,7 @@ public class MainFrame extends JFrame implements ActionListener {
 
         JLabel lblSearchRange = new JLabel("검색 범위");
         lblSearchRange.setFont(font1);
-        this.searchCategory = new JComboBox<>(new String[]{"전체", "이름", "주민번호", "생일", "주소", "성별", "연봉", "상사이름", "부서"});
+        this.searchCategory = new JComboBox<>(new String[]{"전체", "성별", "연봉", "부서"});
         searchCategory.setFont(font1);
         searchCategory.addActionListener(this);
 
@@ -321,11 +321,119 @@ public class MainFrame extends JFrame implements ActionListener {
                     .append("JOIN DEPARTMENT ON E.Dno = Dnumber ")
                     .append("LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.Ssn");
 
-            if (searchCategory.getSelectedItem() == "전체") {
-                flag1 = false;
-                flag2 = false;
-                flag3 = false;
+            System.out.println("Executing query: " + query.toString());
+
+            PreparedStatement p = conn.prepareStatement(query.toString());
+
+            ResultSet r = p.executeQuery();
+
+            DefaultTableModel model = new DefaultTableModel() {
+                @Override
+                public Class<?> getColumnClass(int column) {
+                    // 첫 번째 열이 체크박스 열인 경우 Boolean 타입으로 설정
+                    return column == 0 ? Boolean.class : String.class;
+                }
+            };
+
+            model.addColumn("선택");
+            if (chkName.isSelected()) model.addColumn("NAME");
+            if (chkSsn.isSelected()) model.addColumn("SSN");
+            if (chkBdate.isSelected()) model.addColumn("BDATE");
+            if (chkAddress.isSelected()) model.addColumn("ADDRESS");
+            if (chkSex.isSelected()) model.addColumn("SEX");
+            if (chkSalary.isSelected()) model.addColumn("SALARY");
+            if (chkSupervisor.isSelected()) model.addColumn("SUPERVISOR");
+            if (chkDepartment.isSelected()) model.addColumn("DEPARTMENT");
+
+            while (r.next()) {
+                Object[] row = new Object[model.getColumnCount()];
+                int index = 0;
+                int i = 1;
+                row[index++] = false;
+                if (chkName.isSelected()) row[index++] = r.getString(i++) + " " + r.getString(i++) + " " + r.getString(i++);
+                if (chkSsn.isSelected()) row[index++] = r.getString(i++);
+                if (chkBdate.isSelected()) row[index++] = r.getString(i++);
+                if (chkAddress.isSelected()) row[index++] = r.getString(i++);
+                if (chkSex.isSelected()) row[index++] = r.getString(i++);
+                if (chkSalary.isSelected()) row[index++] = r.getDouble(i++);
+                if (chkSupervisor.isSelected()) {
+                    if (r.getString(i) == null) {
+                        i += 3;
+                        row[index++] = "";
+                    }
+                    else row[index++] = r.getString(i++) + " " + r.getString(i++) + " " + r.getString(i++);
+                }
+                if (chkDepartment.isSelected()) row[index] = r.getString(i);
+                model.addRow(row);
             }
+
+            employeeTable.setModel(model);
+            lblSelectedCount.setText("직원수 : " + model.getRowCount());
+
+            if (conn != null) conn.close();
+
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "데이터를 불러오는데 실패했습니다.");
+        }
+        addTableModelListener();
+    }
+
+    private void fetchData2() {
+        try {
+            Connection conn = DriverManager.getConnection(url, acct, pw);
+
+            // StringBuilder를 활용하여 SQL문 생성
+            StringBuilder query = new StringBuilder("SELECT ");
+            boolean firstField = true;
+
+            if (chkName.isSelected()) {
+                query.append("E.Fname, E.Minit, E.Lname");
+                firstField = false;
+            }
+            if (chkSsn.isSelected()) {
+                if (!firstField) query.append(", ");
+                query.append("E.Ssn");
+                firstField = false;
+            }
+            if (chkBdate.isSelected()) {
+                if (!firstField) query.append(", ");
+                query.append("E.Bdate");
+                firstField = false;
+            }
+            if (chkAddress.isSelected()) {
+                if (!firstField) query.append(", ");
+                query.append("E.Address");
+                firstField = false;
+            }
+            if (chkSex.isSelected()) {
+                if (!firstField) query.append(", ");
+                query.append("E.Sex");
+                firstField = false;
+            }
+            if (chkSalary.isSelected()) {
+                if (!firstField) query.append(", ");
+                query.append("E.Salary");
+                firstField = false;
+            }
+            if (chkSupervisor.isSelected()) {
+                if (!firstField) query.append(", ");
+                query.append("S.Fname, S.Minit, S.Lname");
+                firstField = false;
+            }
+            if (chkDepartment.isSelected()) {
+                if (!firstField) query.append(", ");
+                query.append("Dname");
+            }
+
+            if (firstField) {
+                JOptionPane.showMessageDialog(this, "적어도 하나의 필드는 선택해주세요.");
+                return;
+            }
+
+            query.append(" FROM EMPLOYEE E ")
+                    .append("JOIN DEPARTMENT ON E.Dno = Dnumber ")
+                    .append("LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.Ssn");
+
             if (flag1) query.append(" WHERE E.Sex = ?");
             if (flag2) query.append(" WHERE E.Salary > ?");
             if (flag3) query.append(" WHERE Dname = ?");
@@ -418,11 +526,11 @@ public class MainFrame extends JFrame implements ActionListener {
             searchCategory2.setSelectedIndex(0);
             groupCategory.setSelectedIndex(0);
 
+            String selected = (String) searchCategory.getSelectedItem();
+
             flag1 = false;
             flag2 = false;
             flag3 = false;
-
-            String selected = (String) searchCategory.getSelectedItem();
 
             if (selected.equals("전체")) {
                 lblSelectGroup.setVisible(true);
@@ -456,14 +564,22 @@ public class MainFrame extends JFrame implements ActionListener {
             else if (selected.equals("성별")) {
                 try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                     // ---------- 기영 영역 ----------
+                    String sql = "SELECT Sex, AVG(Salary) AS Avg_Salary FROM EMPLOYEE GROUP BY Sex";
+                    PreparedStatement p = conn.prepareStatement(sql);
+                    ResultSet r = p.executeQuery();
 
+                    DefaultTableModel model = new DefaultTableModel();
+                    model.addColumn("Sex");
+                    model.addColumn("Avg_Salary");
 
+                    while (r.next()) {
+                        String sex = r.getString("Sex");
+                        double avgSalary = r.getDouble("Avg_Salary");
+                        model.addRow(new Object[]{sex, avgSalary});
+                    }
 
-
-
-
+                    employeeTable.setModel(model);
                     // ---------- 기영 영역 ----------
-                    conn.close();
                 } catch (SQLException ex) {
                     JOptionPane.showMessageDialog(this, "데이터를 불러오는데 실패했습니다.");
                 }
@@ -471,14 +587,22 @@ public class MainFrame extends JFrame implements ActionListener {
             else if (selected.equals("부서")) {
                 try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                     // ---------- 기영 영역 ----------
+                    String sql = "SELECT Dname, AVG(Salary) AS Avg_Salary FROM EMPLOYEE JOIN DEPARTMENT ON Dno = Dnumber GROUP BY Dname";
+                    PreparedStatement p = conn.prepareStatement(sql);
+                    ResultSet r = p.executeQuery();
 
+                    DefaultTableModel model = new DefaultTableModel();
+                    model.addColumn("Dname");
+                    model.addColumn("Avg_Salary");
 
+                    while (r.next()) {
+                        String dname = r.getString("Dname");
+                        double avgSalary = r.getDouble("Avg_Salary");
+                        model.addRow(new Object[]{dname, avgSalary});
+                    }
 
-
-
-
+                    employeeTable.setModel(model);
                     // ---------- 기영 영역 ----------
-                    conn.close();
                 } catch (SQLException ex) {
                     JOptionPane.showMessageDialog(this, "데이터를 불러오는데 실패했습니다.");
                 }
@@ -486,14 +610,22 @@ public class MainFrame extends JFrame implements ActionListener {
             else if (selected.equals("상급자")) {
                 try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                     // ---------- 기영 영역 ----------
+                    String sql = "SELECT S.Fname, S.Minit, S.Lname, AVG(S.Salary) AS Avg_Salary FROM EMPLOYEE E JOIN EMPLOYEE S ON E.Super_ssn = S.Ssn GROUP BY S.Fname, S.Minit, S.Lname";
+                    PreparedStatement p = conn.prepareStatement(sql);
+                    ResultSet r = p.executeQuery();
 
+                    DefaultTableModel model = new DefaultTableModel();
+                    model.addColumn("S_Name");
+                    model.addColumn("Avg_Salary");
 
+                    while (r.next()) {
+                        String sName = r.getString("S.Fname") + " " + r.getString("S.Minit") + " " + r.getString("S.Lname");
+                        double avgSalary = r.getDouble("Avg_Salary");
+                        model.addRow(new Object[]{sName, avgSalary});
+                    }
 
-
-
-
+                    employeeTable.setModel(model);
                     // ---------- 기영 영역 ----------
-                    conn.close();
                 } catch (SQLException ex) {
                     JOptionPane.showMessageDialog(this, "데이터를 불러오는데 실패했습니다.");
                 }
@@ -501,7 +633,7 @@ public class MainFrame extends JFrame implements ActionListener {
         }
 
         if (e.getSource() == btnSearch) {
-            fetchData();
+            fetchData2();
         }
 
         if (e.getSource() == btnInsert) {
@@ -512,24 +644,116 @@ public class MainFrame extends JFrame implements ActionListener {
         if (e.getSource() == btnUpdate) {
             try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                 // ---------- 준호 영역 ----------
+                String selectedField = updateCategory.getSelectedItem().toString();
+                String newValue = txtUpdate.getText();
+                String updateQuery;
 
+                // SSN이 선택된 경우 Super_ssn 필드를 검사하여 업데이트
+                if (selectedField.equals("Ssn")) {
+                    for (String oldSsn : selectedSsnList) {
+                        // 1. 현재 SSN을 새 값으로 업데이트
+                        updateQuery = "UPDATE EMPLOYEE SET Ssn = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                        PreparedStatement pstmt = conn.prepareStatement(updateQuery);
+                        pstmt.setString(1, newValue);
+                        pstmt.setString(2, oldSsn);
+                        pstmt.executeUpdate();
 
+                        // 2. 모든 직원의 Super_ssn을 검사하여, 현재 업데이트 중인 직원의 기존 SSN과 일치하는 경우 새 SSN으로 변경
+                        updateQuery = "UPDATE EMPLOYEE SET Super_ssn = ? WHERE Super_ssn = ?";
+                        pstmt = conn.prepareStatement(updateQuery);
+                        pstmt.setString(1, newValue);
+                        pstmt.setString(2, oldSsn);
+                        pstmt.executeUpdate();
+                    }
+                } else if (selectedField.equals("Name")) {
+                    // Name 업데이트 로직
+                    String[] nameParts = newValue.split(" ");
+                    if (nameParts.length < 2) {
+                        JOptionPane.showMessageDialog(this, "이름은 최소 성과 이름으로 구성되어야 합니다.");
+                        return;
+                    }
+                    String fname = nameParts[0];
+                    String minit = nameParts.length > 2 ? nameParts[1] : "";  // 중간 이름이 없는 경우 빈 문자열로 처리
+                    String lname = nameParts.length > 2 ? nameParts[2] : nameParts[1];
 
-                // selectedSsnList의 원소들 사용 - 자료형은 맨 위 참고
-                // List 내에 있는 Ssn들을 선택
-                // updateCategory, txtUpdate 변수들 사용 - 자료형은 맨 위 참고
-                // 이 변수들 get~~ 함수로 값을 가져와서 사용
+                    updateQuery = "UPDATE EMPLOYEE SET Fname = ?, Minit = ?, Lname = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(updateQuery);
 
-                // 설명: 사용자가 수정하고자 하는 직원을 선택하고, 수정하고 싶은 필드(어트리뷰트)를 선택하고, 어떤 값으로 수정할지 선택한 후
-                // UPDATE 버튼을 누르면 DB에서 삭제하는 로직 필요 -> 해당 로직을 여기에서 구현
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setString(1, fname);
+                        pstmt.setString(2, minit);
+                        pstmt.setString(3, lname);
+                        pstmt.setString(4, ssn);
+                        pstmt.executeUpdate();
+                    }
+                } else if (selectedField.equals("Department")) {
+                    // 부서 업데이트 로직
+                    int departmentNo;
+                    try {
+                        departmentNo = Integer.parseInt(newValue);
+                        if (departmentNo != 1 && departmentNo != 4 && departmentNo != 5) {
+                            JOptionPane.showMessageDialog(this, "유효한 부서 번호는 1, 4, 5 입니다.");
+                            return;
+                        }
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(this, "부서 번호는 숫자로 입력해야 합니다.");
+                        return;
+                    }
 
+                    updateQuery = "UPDATE EMPLOYEE SET Dno = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(updateQuery);
 
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setInt(1, departmentNo);
+                        pstmt.setString(2, ssn);
+                        pstmt.executeUpdate();
+                    }
+                } else if (selectedField.equals("Supervisor")) {
+                    // Supervisor 업데이트 로직
+                    // Super_ssn이 존재하는지 확인
+                    updateQuery = "SELECT COUNT(*) FROM EMPLOYEE WHERE Ssn = ?";
+                    PreparedStatement checkStmt = conn.prepareStatement(updateQuery);
+                    checkStmt.setString(1, newValue);
+                    ResultSet rs = checkStmt.executeQuery();
+                    rs.next();
+                    if (rs.getInt(1) == 0) {
+                        JOptionPane.showMessageDialog(this, "유효하지 않은 슈퍼바이저 SSN입니다.");
+                        return;
+                    }
 
+                    // 본인을 슈퍼바이저로 지정하지 못하도록 확인
+                    for (String ssn : selectedSsnList) {
+                        if (ssn.equals(newValue)) {
+                            JOptionPane.showMessageDialog(this, "본인을 슈퍼바이저로 지정할 수 없습니다.");
+                            return;
+                        }
+                    }
 
-                // ---------- 준호 영역 ----------
-                conn.close();
+                    // Supervisor 업데이트 진행
+                    updateQuery = "UPDATE EMPLOYEE SET Super_ssn = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(updateQuery);
+
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setString(1, newValue);
+                        pstmt.setString(2, ssn);
+                        pstmt.executeUpdate();
+                    }
+                } else {
+                    // 다른 필드 선택 시 기본적인 업데이트 로직 유지
+                    updateQuery = "UPDATE EMPLOYEE SET " + selectedField + " = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
+                    PreparedStatement pstmt = conn.prepareStatement(updateQuery);
+
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setString(1, newValue);
+                        pstmt.setString(2, ssn);
+                        pstmt.executeUpdate();
+                    }
+                }
+
                 JOptionPane.showMessageDialog(this, "수정 성공!");
                 new MainFrame(url, acct, pw);
+                this.setVisible(false);
+                // ---------- 준호 영역 ----------
                 this.setVisible(false);
             } catch (SQLException ex) {
                 JOptionPane.showMessageDialog(this, "수정에 실패했습니다. 데이터 형식을 확인하세요.");
@@ -539,17 +763,15 @@ public class MainFrame extends JFrame implements ActionListener {
         if (e.getSource() == btnDelete) {
             try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
                 // ---------- 재혁님 영역 ----------
-
-
-
-                // selectedSsnList의 원소들 사용 - 자료형은 맨 위 참고
-                // List 내에 있는 Ssn들을 삭제하는 로직 구현
-
-                // 설명: 사용자가 삭제하고자 하는 직원을 선택하고 삭제 버튼을 누르면 DB에서 삭제하는 로직 필요 -> 해당 로직을 여기에서 구현
-
-
-
-
+                String sql = "DELETE FROM EMPLOYEE WHERE Ssn = ?";
+                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    // 선택된 모든 Ssn에 대해 삭제 실행
+                    for (String ssn : selectedSsnList) {
+                        pstmt.setString(1, ssn);
+                        pstmt.addBatch();
+                    }
+                    pstmt.executeBatch();
+                }
                 // ---------- 재혁님 영역 ----------
                 conn.close();
                 JOptionPane.showMessageDialog(this, "삭제 성공!");
