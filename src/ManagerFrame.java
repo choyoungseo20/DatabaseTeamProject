@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.ResultSet;
 
 public class ManagerFrame extends JFrame implements ActionListener {
 
@@ -100,21 +101,36 @@ public class ManagerFrame extends JFrame implements ActionListener {
                 return;
             }
 
-            // 제약조건 설정
             String constraintName = "salary_range";
-            String dropConstraintSQL = "ALTER TABLE EMPLOYEE DROP CONSTRAINT IF EXISTS " + constraintName;
+            String getCurrentMinMaxSQL = "SELECT MIN(Salary) AS curr_min_salary, MAX(Salary) AS curr_max_salary FROM EMPLOYEE";
+            String dropConstraintSQL = "ALTER TABLE EMPLOYEE DROP CHECK " + constraintName;
             String addConstraintSQL = String.format(
                     "ALTER TABLE EMPLOYEE ADD CONSTRAINT %s CHECK (Salary >= %d AND Salary <= %d)",
                     constraintName, intMinSalary, intMaxSalary);
 
-
             try (Connection conn = DriverManager.getConnection(url, acct, pw);
-                 Statement stmt = conn.createStatement()) {
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(getCurrentMinMaxSQL)) {
 
-                stmt.executeUpdate(dropConstraintSQL);
-                stmt.executeUpdate(addConstraintSQL);
+                int currMinSalary = 0, currMaxSalary = Integer.MAX_VALUE;
+                if (rs.next()) {
+                    currMinSalary = rs.getInt("curr_min_salary");
+                    currMaxSalary = rs.getInt("curr_max_salary");
+                }
 
-                JOptionPane.showMessageDialog(this, "스키마 변경 성공!");
+                if (currMaxSalary <= intMaxSalary && currMinSalary >= intMinSalary) {
+                    try {
+                        stmt.executeUpdate(dropConstraintSQL);
+                    } catch (SQLException ex) {
+                        System.out.println("기존 제약조건이 없거나 삭제 중 오류 발생: " + ex.getMessage());
+                    }
+                    stmt.executeUpdate(addConstraintSQL);
+                    JOptionPane.showMessageDialog(this, "스키마 변경 성공!");
+                }
+                else {
+                    JOptionPane.showMessageDialog(this, "제약조건 위배 상황 발생!");
+                }
+
             } catch (SQLException ex) {
                 JOptionPane.showMessageDialog(this, "스키마 변경 실패.");
             }
