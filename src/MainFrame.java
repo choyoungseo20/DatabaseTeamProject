@@ -78,7 +78,7 @@ public class MainFrame extends JFrame implements ActionListener {
         txtSalary.setVisible(false);
         searchCategory2.setVisible(false);
 
-        this.lblSelectGroup = new JLabel("그룹간 평균 월급");
+        this.lblSelectGroup = new JLabel("그룹간 평균 연봉");
         lblSelectGroup.setFont(font1);
         this.groupCategory = new JComboBox<>(new String[]{"그룹 없음", "성별", "부서", "상급자"});
         groupCategory.setFont(font1);
