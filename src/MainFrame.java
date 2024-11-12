@@ -662,6 +662,10 @@ public class MainFrame extends JFrame implements ActionListener {
                 // SSN이 선택된 경우 Super_ssn 필드를 검사하여 업데이트
                 if (selectedField.equals("Ssn")) {
                     for (String oldSsn : selectedSsnList) {
+                        if (selectedSsnList.size() != 1) {
+                            JOptionPane.showMessageDialog(this, "SSN은 고유한 값이므로 한 명씩만 선택해 주세요.");
+                            return;
+                        }
                         // 1. 현재 SSN을 새 값으로 업데이트
                         updateQuery = "UPDATE EMPLOYEE SET Ssn = ?, modified = CURRENT_TIMESTAMP WHERE Ssn = ?";
                         PreparedStatement pstmt = conn.prepareStatement(updateQuery);
@@ -772,17 +776,24 @@ public class MainFrame extends JFrame implements ActionListener {
 
         if (e.getSource() == btnDelete) {
             try (Connection conn = DriverManager.getConnection(url, acct, pw)) {
-                // ---------- 재혁님 영역 ----------
-                String sql = "DELETE FROM EMPLOYEE WHERE Ssn = ?";
-                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                    // 선택된 모든 Ssn에 대해 삭제 실행
+                // 재혁님 영역
+                String deleteSql = "DELETE FROM EMPLOYEE WHERE Ssn = ?";
+                String updateSql = "UPDATE EMPLOYEE SET Super_ssn = NULL WHERE Super_ssn = ?";
+                try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql);
+                     PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
+
+                    // 선택된 모든 Ssn에 대해 삭제와 업데이트 실행
                     for (String ssn : selectedSsnList) {
-                        pstmt.setString(1, ssn);
-                        pstmt.addBatch();
+                        deleteStmt.setString(1, ssn);
+                        deleteStmt.addBatch();
+
+                        updateStmt.setString(1, ssn);
+                        updateStmt.addBatch();
                     }
-                    pstmt.executeBatch();
+                    deleteStmt.executeBatch();
+                    updateStmt.executeBatch();
                 }
-                // ---------- 재혁님 영역 ----------
+                // 재혁님 영역
                 conn.close();
                 JOptionPane.showMessageDialog(this, "삭제 성공!");
                 new MainFrame(url, acct, pw);
@@ -791,5 +802,6 @@ public class MainFrame extends JFrame implements ActionListener {
                 JOptionPane.showMessageDialog(this, "삭제에 실패했습니다.");
             }
         }
+
     }
 }
