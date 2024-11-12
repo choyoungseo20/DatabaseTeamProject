@@ -172,7 +172,7 @@ public class MainFrame extends JFrame implements ActionListener {
         // Bottom Panel1
         JPanel bottomPanel1 = new JPanel(new BorderLayout());
 
-        this.lblSelectedEmployees = new JLabel("선택한 직원: ");
+        this.lblSelectedEmployees = new JLabel("선택된 직원 데이터: ");
         lblSelectedEmployees.setFont(font1);
 
         this.btnInsert = new JButton("직원 추가");
@@ -194,7 +194,7 @@ public class MainFrame extends JFrame implements ActionListener {
         JLabel lblUpdateItem = new JLabel("수정: ");
         lblUpdateItem.setFont(font1);
 
-        this.updateCategory = new JComboBox<>(new String[] {"Name", "Ssn", "Bdate", "Address", "Sex", "Salary", "Supervisor", "Department"});
+        this.updateCategory = new JComboBox<>(new String[] {"Name", "Ssn", "Bdate", "Address", "Sex", "Salary", "Super_ssn", "Dno"});
         updateCategory.setFont(font1);
 
         this.txtUpdate = new JTextField(15);
@@ -515,6 +515,10 @@ public class MainFrame extends JFrame implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == searchCategory){
+            selectedEmployeeList = new ArrayList<>();
+            selectedSsnList = new ArrayList<>();
+            lblSelectedEmployees.setText("선택된 직원 데이터: ");
+
             searchCategory1.setVisible(false);
             txtSalary.setVisible(false);
             searchCategory2.setVisible(false);
@@ -556,6 +560,10 @@ public class MainFrame extends JFrame implements ActionListener {
         }
 
         if (e.getSource() == groupCategory) {
+            selectedEmployeeList = new ArrayList<>();
+            selectedSsnList = new ArrayList<>();
+            lblSelectedEmployees.setText("선택된 직원 데이터: ");
+
             String selected = (String) groupCategory.getSelectedItem();
 
             if (selected.equals("그룹 없음")) {
@@ -633,6 +641,9 @@ public class MainFrame extends JFrame implements ActionListener {
         }
 
         if (e.getSource() == btnSearch) {
+            selectedEmployeeList = new ArrayList<>();
+            selectedSsnList = new ArrayList<>();
+            lblSelectedEmployees.setText("선택된 직원 데이터: ");
             fetchData2();
         }
 
@@ -686,7 +697,7 @@ public class MainFrame extends JFrame implements ActionListener {
                         pstmt.setString(4, ssn);
                         pstmt.executeUpdate();
                     }
-                } else if (selectedField.equals("Department")) {
+                } else if (selectedField.equals("Dno")) {
                     // 부서 업데이트 로직
                     int departmentNo;
                     try {
@@ -708,7 +719,7 @@ public class MainFrame extends JFrame implements ActionListener {
                         pstmt.setString(2, ssn);
                         pstmt.executeUpdate();
                     }
-                } else if (selectedField.equals("Supervisor")) {
+                } else if (selectedField.equals("Super_ssn")) {
                     // Supervisor 업데이트 로직
                     // Super_ssn이 존재하는지 확인
                     updateQuery = "SELECT COUNT(*) FROM EMPLOYEE WHERE Ssn = ?";
@@ -752,7 +763,6 @@ public class MainFrame extends JFrame implements ActionListener {
 
                 JOptionPane.showMessageDialog(this, "수정 성공!");
                 new MainFrame(url, acct, pw);
-                this.setVisible(false);
                 // ---------- 준호 영역 ----------
                 this.setVisible(false);
             } catch (SQLException ex) {
